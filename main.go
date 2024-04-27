@@ -17,6 +17,7 @@ func main() {
 	namespace_filter := getopt.StringLong("namespace", 'n', "", "namespace regex")
 	pod_filter := getopt.StringLong("pod", 'p', "", "pod regex")
 	command := getopt.StringLong("command", 'C', "", "command to run, if empty, just list pods")
+	shell := getopt.StringLong("shell", 'S', "sh", "default: sh")
 	skip_filter := getopt.BoolLong("skip-filter", 's', "skip filtering, does not use regex")
 
 	getopt.Parse()
@@ -76,7 +77,7 @@ func main() {
 			filtered_pods := filterString(pods, *pod_filter)
 			fmt.Println(filtered_pods)
 			for _, pod := range filtered_pods {
-				cmd := exec.Command("kubectl", "exec", "--context", ctx, "-n", ns, pod, "--", "sh", "-c", *command)
+				cmd := exec.Command("kubectl", "exec", "--context", ctx, "-n", ns, pod, "--", *shell, "-c", *command)
 				command_output, err := cmd.Output()
 				if err != nil {
 					fmt.Printf("%s %s %s: %s\n", ctx, ns, pod, err)
