@@ -18,12 +18,12 @@ Usage: k8s-knife [-hs] [-C value] [-c value] [-n value] [-p value] [-S value] [p
 ```
 
 ## TODO
-Put together rpm and goreleaser pipeline
-Make the discovery of the pods concurrently
-Improve pod listing output, make it more useful
-Maybe don't fail when context or ns fail, just inform and skip it
-Add pod prefix when displaying multi-line output
-Dinamycally tries /bin/sh, /bin/dash, /bin/bash, /bin/ash ===> sh -c "ls -d /tmp" || bash -c "ls -d /tmp" || ash -c "ls -d /tmp"  || dash -c "ls -d /tmp"
-Put together some tests
+- Put together rpm and goreleaser pipeline
+- Make the discovery of the pods concurrently
+- Improve pod listing output, and make it more useful
+- Maybe don't fail when context or ns fail, just inform and skip it
+- Add pod prefix when displaying multi-line output
+- Dynamically tries /bin/sh, /bin/dash, /bin/bash, /bin/ash ===> sh -c "ls -d /tmp" || bash -c "ls -d /tmp" || ash -c "ls -d /tmp"  || dash -c "ls -d /tmp"
+- Put together some tests
 
 
