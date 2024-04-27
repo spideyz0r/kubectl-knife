@@ -1,0 +1,19 @@
+#1 when run without param, should list pods that match the regex filter
+#2 filter can have: cluster, namespace, podname
+  > nothing specificed, do on all, and so on
+#3 runs on all pods concurrently
+#4 test if shell is present in full path
+#5 dinamycally tries /bin/sh, /bin/dash, /bin/bash, /bin/ash ===> sh -c "ls -d /tmp" || bash -c "ls -d /tmp" || ash -c "ls -d /tmp"  || dash -c "ls -d /tmp"
+#6 start just listing...
+#7 add option to skip the filter -s for skipping the filter
+#9 create a struct, we need to create a list of structs with all target clusters, namespaces, and pods that exist and match the filter
+===> Struct Pod
+   > ns
+   > podname
+   > context
+#1 discovery
+#2 run
+
+k8s-knife -c cluster -n namespace -p pod -c command -s override-shell (default: dynamic search)
+
+
