@@ -7,9 +7,30 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/pborman/getopt"
 )
+
+type Knife struct {
+	pods    []Pod
+	command string
+	user    string
+}
+
+type Pod struct {
+	pod_name  string
+	namespace string
+	context   string
+}
+
+func (k Knife) Print() {
+	// maybe also list uptime, or get pod like output
+	fmt.Printf("%s\t%s\t%s\n", "context", "namespace", "pod_name")
+	for _, p := range k.pods {
+		fmt.Printf("%s\t%s\t%s\n", p.context, p.namespace, p.pod_name)
+	}
+}
 
 func main() {
 	help := getopt.BoolLong("help", 'h', "display this help")
@@ -26,70 +47,68 @@ func main() {
 		getopt.Usage()
 		os.Exit(0)
 	}
-	fmt.Println("cluster:", *cluster_filter)
-	fmt.Println("namespace:", *namespace_filter)
-	fmt.Println("pod:", *pod_filter)
-	fmt.Println("command:", *command)
-	cmd := exec.Command("kubectl", "config", "get-contexts", "--no-headers=true", "-o", "name")
-	filtered_contexts := []string{*cluster_filter}
-	if !*skip_filter {
-		fmt.Println("Not skipping ctx filter")
+	pods, err := discoveryPods(*cluster_filter, *namespace_filter, *pod_filter, *skip_filter)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var k Knife
+	k = Knife{
+		pods:    pods,
+		command: *command,
+	}
+	if *command == "" {
+		k.Print()
+		os.Exit(0)
+	}
+	var wg sync.WaitGroup
+	for _, p := range k.pods {
+		wg.Add(1)
+		go runCommand(p.context, p.namespace, p.pod_name, *command, *shell, &wg)
+	}
+	wg.Wait()
+}
+
+func discoveryPods(cluster_filter, namespace_filter, pod_filter string, skip_filter bool) ([]Pod, error) {
+	var pods []Pod
+	filtered_contexts := []string{cluster_filter}
+	if !skip_filter {
+		cmd := exec.Command("kubectl", "config", "get-contexts", "--no-headers=true", "-o", "name")
 		contexts, err := cmd.Output()
 		if err != nil {
-			fmt.Println(err)
-			log.Fatal(err)
+			return nil, err
 		}
 		clusters := strings.Split(string(contexts), "\n")
-		filtered_contexts = filterString(clusters, *cluster_filter)
+		filtered_contexts = filterString(clusters, cluster_filter)
 	}
 
 	for _, ctx := range filtered_contexts {
-		fmt.Println(">>>>> cluster:", ctx)
-		filtered_namespaces := []string{*namespace_filter}
-		if !*skip_filter {
-			fmt.Println("Not skipping ns filter")
+		filtered_namespaces := []string{namespace_filter}
+		if !skip_filter {
 			cmd := exec.Command("kubectl", "get", "namespaces", "--no-headers=true", "--context", ctx, "-o", "name")
 			raw_namespaces, err := cmd.Output()
 			if err != nil {
-				fmt.Println(err)
-				log.Fatal(err)
+				return nil, err
 			}
-			var namespaces []string
-			lines := strings.Split(strings.TrimSpace(string(raw_namespaces)), "\n")
-			for _, line := range lines {
-				namespaces = append(namespaces, strings.Split(line, "/")[1])
-			}
-			filtered_namespaces = filterString(namespaces, *namespace_filter)
+			filtered_namespaces = filterString(getName(string(raw_namespaces)), namespace_filter)
 		}
 		for _, ns := range filtered_namespaces {
-			fmt.Println(">> namespace:", ns)
 			cmd := exec.Command("kubectl", "get", "pods", "--no-headers=true", "--context", ctx, "-o", "name", "-n", ns)
 			raw_pods, err := cmd.Output()
 			if err != nil {
-				fmt.Println(err)
-				log.Fatal(err)
+				return nil, err
 			}
-			var pods []string
-			lines := strings.Split(strings.TrimSpace(string(raw_pods)), "\n")
-			for _, line := range lines {
-				pods = append(pods, strings.Split(line, "/")[1])
-			}
-			filtered_pods := filterString(pods, *pod_filter)
-			fmt.Println(filtered_pods)
+			filtered_pods := filterString(getName(string(raw_pods)), pod_filter)
 			for _, pod := range filtered_pods {
-				cmd := exec.Command("kubectl", "exec", "--context", ctx, "-n", ns, pod, "--", *shell, "-c", *command)
-				command_output, err := cmd.Output()
-				if err != nil {
-					fmt.Printf("%s %s %s: %s\n", ctx, ns, pod, err)
-
-					continue
-				}
-				// need to cleanout the output
-				fmt.Printf("%s %s %s: %s", ctx, ns, pod, string(command_output))
+				pods = append(pods, Pod{
+					pod_name:  pod,
+					namespace: ns,
+					context:   ctx,
+				})
 			}
-
 		}
 	}
+	return pods, nil
 }
 
 func filterString(items []string, patter string) []string {
@@ -104,4 +123,25 @@ func filterString(items []string, patter string) []string {
 		}
 	}
 	return result
+}
+
+func getName(kubectl_cmd string) []string {
+	var result []string
+	lines := strings.Split(strings.TrimSpace(string(kubectl_cmd)), "\n")
+	for _, line := range lines {
+		result = append(result, strings.Split(line, "/")[1])
+	}
+	return result
+}
+
+func runCommand(ctx, ns, pod, command, shell string, wg *sync.WaitGroup) {
+	defer wg.Done()
+	cmd := exec.Command("kubectl", "exec", "--context", ctx, "-n", ns, pod, "--", shell, "-c", command)
+	command_output, err := cmd.Output()
+	if err != nil {
+		fmt.Printf("%s %s %s: %s\n", ctx, ns, pod, err)
+	} else {
+		// need to cleanout the output, or think on a way to repeat the pod name in each line of the output
+		fmt.Printf("%s %s %s: %s", ctx, ns, pod, string(command_output))
+	}
 }
