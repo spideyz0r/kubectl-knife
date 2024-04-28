@@ -34,6 +34,7 @@ func (k Knife) Print() {
 
 func main() {
 	help := getopt.BoolLong("help", 'h', "display this help")
+	debug := getopt.BoolLong("debug", 'd', "debug mode")
 	cluster_filter := getopt.StringLong("context", 'c', "", "context regex")
 	namespace_filter := getopt.StringLong("namespace", 'n', "", "namespace regex")
 	pod_filter := getopt.StringLong("pod", 'p', "", "pod regex")
@@ -47,7 +48,12 @@ func main() {
 		getopt.Usage()
 		os.Exit(0)
 	}
-	pods, err := discoveryPods(*cluster_filter, *namespace_filter, *pod_filter, *skip_filter)
+
+	if *debug {
+		fmt.Println("DEBUG: starting kube-knife")
+	}
+
+	pods, err := discoveryPods(*cluster_filter, *namespace_filter, *pod_filter, *skip_filter, *debug)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -58,8 +64,14 @@ func main() {
 		command: *command,
 	}
 	if *command == "" {
+		if *debug {
+			fmt.Println("DEBUG: listing pods")
+		}
 		k.Print()
 		os.Exit(0)
+	}
+	if *debug {
+		fmt.Println("DEBUG: executing command on pods")
 	}
 	var wg sync.WaitGroup
 	for _, p := range k.pods {
@@ -69,20 +81,32 @@ func main() {
 	wg.Wait()
 }
 
-func discoveryPods(cluster_filter, namespace_filter, pod_filter string, skip_filter bool) ([]Pod, error) {
+func discoveryPods(cluster_filter, namespace_filter, pod_filter string, skip_filter, debug bool) ([]Pod, error) {
 	var pods []Pod
 	filtered_contexts := []string{cluster_filter}
+	if debug {
+		fmt.Println("DEBUG: discovering pods")
+	}
 	if !skip_filter {
+		if debug {
+			fmt.Println("DEBUG: filtering clusters")
+		}
 		cmd := exec.Command("kubectl", "config", "get-contexts", "--no-headers=true", "-o", "name")
 		contexts, err := cmd.Output()
 		if err != nil {
 			return nil, err
 		}
 		clusters := strings.Split(string(contexts), "\n")
+		if len(clusters) == 0 {
+			return nil, fmt.Errorf("no clusters found")
+		}
 		filtered_contexts = filterString(clusters, cluster_filter)
 	}
 
 	for _, ctx := range filtered_contexts {
+		if debug {
+			fmt.Println("DEBUG: filtering namespaces for context:", ctx)
+		}
 		filtered_namespaces := []string{namespace_filter}
 		if !skip_filter {
 			cmd := exec.Command("kubectl", "get", "namespaces", "--no-headers=true", "--context", ctx, "-o", "name")
@@ -90,16 +114,31 @@ func discoveryPods(cluster_filter, namespace_filter, pod_filter string, skip_fil
 			if err != nil {
 				return nil, err
 			}
+			if len(raw_namespaces) == 0 {
+				continue
+			}
 			filtered_namespaces = filterString(getName(string(raw_namespaces)), namespace_filter)
 		}
 		for _, ns := range filtered_namespaces {
+			if debug {
+				fmt.Printf("DEBUG: filtering pods for context: %s namespace: %s\n", ctx, ns)
+			}
 			cmd := exec.Command("kubectl", "get", "pods", "--no-headers=true", "--context", ctx, "-o", "name", "-n", ns)
 			raw_pods, err := cmd.Output()
 			if err != nil {
 				return nil, err
 			}
+			if len(raw_pods) == 0 {
+				continue
+			}
 			filtered_pods := filterString(getName(string(raw_pods)), pod_filter)
+			if debug {
+				fmt.Printf("DEBUG: found %d pods in context %s namespace %s\n", len(filtered_pods), ctx, ns)
+			}
 			for _, pod := range filtered_pods {
+				if debug {
+					fmt.Printf("DEBUG: found pod %s in context %s namespace %s\n", pod, ctx, ns)
+				}
 				pods = append(pods, Pod{
 					pod_name:  pod,
 					namespace: ns,
