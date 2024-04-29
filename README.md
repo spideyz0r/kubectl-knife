@@ -7,12 +7,12 @@ kube-knife is a tool to run commands on multiple pods concurrently using kubectl
 
 ### Binary: MacOS (amd64/arm64), Windows, Linux
 ```
-https://github.com/spideyz0r/kubesw/releases
+https://github.com/spideyz0r/kube-knife/releases
 ```
 ### From source
 ```
-git checkout https://github.com/spideyz0r/kubesw
-cd kubesw; go build -v -o kubesw
+git checkout https://github.com/spideyz0r/kube-knife
+cd kube-knife; go build -v -o kube-knife
 ```
 
 ## Usage
