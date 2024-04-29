@@ -81,61 +81,78 @@ func main() {
 	wg.Wait()
 }
 
+func getContexts(filter string, skip_filter bool) ([]string, error) {
+	if skip_filter {
+		return []string{filter}, nil
+	}
+	cmd := exec.Command("kubectl", "config", "get-contexts", "--no-headers=true", "-o", "name")
+	contexts, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	clusters := strings.Split(string(contexts), "\n")
+	if len(clusters) == 0 {
+		return nil, fmt.Errorf("no clusters found")
+	}
+	return filterString(clusters, filter), nil
+}
+
+func getNamespaces(ctx, filter string, skip_filter bool) ([]string, error) {
+	if skip_filter{
+		return []string{filter}, nil
+	}
+	cmd := exec.Command("kubectl", "get", "namespaces", "--no-headers=true", "--context", ctx, "-o", "name")
+	raw_namespaces, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	if len(raw_namespaces) == 0 {
+		return nil, fmt.Errorf("no namespaces found")
+	}
+	return filterString(getName(string(raw_namespaces)), filter), nil
+}
+
+func getPods(ctx, ns, filter string, skip_filter bool) ([]string, error) {
+	if skip_filter {
+		return []string{filter}, nil
+	}
+	cmd := exec.Command("kubectl", "get", "pods", "--no-headers=true", "--context", ctx, "-n", ns, "-o", "name")
+	raw_pods, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	if len(raw_pods) == 0 {
+		return nil, fmt.Errorf("no pods found")
+	}
+	return filterString(getName(string(raw_pods)), filter), nil
+}
+
 func discoveryPods(cluster_filter, namespace_filter, pod_filter string, skip_filter, debug bool) ([]Pod, error) {
 	var pods []Pod
-	filtered_contexts := []string{cluster_filter}
-	if debug {
-		fmt.Println("DEBUG: discovering pods")
+	clusters, err := getContexts(cluster_filter, skip_filter)
+	if err != nil {
+		return nil, err
 	}
-	if !skip_filter {
-		if debug {
-			fmt.Println("DEBUG: filtering clusters")
-		}
-		cmd := exec.Command("kubectl", "config", "get-contexts", "--no-headers=true", "-o", "name")
-		contexts, err := cmd.Output()
-		if err != nil {
-			return nil, err
-		}
-		clusters := strings.Split(string(contexts), "\n")
-		if len(clusters) == 0 {
-			return nil, fmt.Errorf("no clusters found")
-		}
-		filtered_contexts = filterString(clusters, cluster_filter)
-	}
-
-	for _, ctx := range filtered_contexts {
+	for _, ctx := range clusters {
 		if debug {
 			fmt.Println("DEBUG: filtering namespaces for context:", ctx)
 		}
-		filtered_namespaces := []string{namespace_filter}
-		if !skip_filter {
-			cmd := exec.Command("kubectl", "get", "namespaces", "--no-headers=true", "--context", ctx, "-o", "name")
-			raw_namespaces, err := cmd.Output()
-			if err != nil {
-				return nil, err
+		namespaces, err := getNamespaces(ctx, namespace_filter, skip_filter)
+		if err != nil || len(namespaces) == 0{
+			if debug {
+				fmt.Println("DEBUG: no namespaces found for context:", ctx)
 			}
-			if len(raw_namespaces) == 0 {
-				continue
-			}
-			filtered_namespaces = filterString(getName(string(raw_namespaces)), namespace_filter)
+			continue
 		}
-		for _, ns := range filtered_namespaces {
-			if debug {
-				fmt.Printf("DEBUG: filtering pods for context: %s namespace: %s\n", ctx, ns)
-			}
-			cmd := exec.Command("kubectl", "get", "pods", "--no-headers=true", "--context", ctx, "-o", "name", "-n", ns)
-			raw_pods, err := cmd.Output()
-			if err != nil {
-				return nil, err
-			}
-			if len(raw_pods) == 0 {
+		for _, ns := range namespaces {
+			ns_pods, err := getPods(ctx, ns, pod_filter, skip_filter)
+			if err != nil || len(ns_pods) == 0 {
 				continue
 			}
-			filtered_pods := filterString(getName(string(raw_pods)), pod_filter)
 			if debug {
-				fmt.Printf("DEBUG: found %d pods in context %s namespace %s\n", len(filtered_pods), ctx, ns)
+				fmt.Printf("DEBUG: found %d pods in context %s namespace %s\n", len(ns_pods), ctx, ns)
 			}
-			for _, pod := range filtered_pods {
+			for _, pod := range ns_pods {
 				if debug {
 					fmt.Printf("DEBUG: found pod %s in context %s namespace %s\n", pod, ctx, ns)
 				}
