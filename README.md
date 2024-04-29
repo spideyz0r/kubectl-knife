@@ -36,6 +36,7 @@ Usage: kube-knife [-hs] [-C value] [-c value] [-n value] [-p value] [-S value] [
 - Add pod prefix when displaying multi-line output
 - Dynamically tries /bin/sh, /bin/dash, /bin/bash, /bin/ash ===> sh -c "ls -d /tmp" || bash -c "ls -d /tmp" || ash -c "ls -d /tmp"  || dash -c "ls -d /tmp"
 - Put together some tests
-- Use API rather than call kubectl 
+- Use API rather than call kubectl
+- Add option to set number of cores to be used (depending on the filter it can take over all the cpu)
 
 
