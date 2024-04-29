@@ -133,36 +133,59 @@ func discoveryPods(cluster_filter, namespace_filter, pod_filter string, skip_fil
 	if err != nil {
 		return nil, err
 	}
+
+	podChan := make(chan []Pod)
+
 	for _, ctx := range clusters {
-		if debug {
-			fmt.Println("DEBUG: filtering namespaces for context:", ctx)
-		}
-		namespaces, err := getNamespaces(ctx, namespace_filter, skip_filter)
-		if err != nil || len(namespaces) == 0{
-			if debug {
-				fmt.Println("DEBUG: no namespaces found for context:", ctx)
-			}
-			continue
-		}
-		for _, ns := range namespaces {
-			ns_pods, err := getPods(ctx, ns, pod_filter, skip_filter)
-			if err != nil || len(ns_pods) == 0 {
-				continue
-			}
-			if debug {
-				fmt.Printf("DEBUG: found %d pods in context %s namespace %s\n", len(ns_pods), ctx, ns)
-			}
-			for _, pod := range ns_pods {
+		go func(ctx string) {
+			var clusterPods []Pod
+
+			namespaces, err := getNamespaces(ctx, namespace_filter, skip_filter)
+			if err != nil || len(namespaces) == 0{
 				if debug {
-					fmt.Printf("DEBUG: found pod %s in context %s namespace %s\n", pod, ctx, ns)
+					fmt.Println("DEBUG: no namespaces found for context:", ctx)
 				}
-				pods = append(pods, Pod{
-					pod_name:  pod,
-					namespace: ns,
-					context:   ctx,
-				})
+				podChan <- clusterPods
+				return
 			}
-		}
+
+			namespacePodChan := make(chan []Pod)
+			for _, ns := range namespaces {
+				go func(ctx, ns string) {
+					ns_pods, err := getPods(ctx, ns, pod_filter, skip_filter)
+					if err != nil || len(ns_pods) == 0 {
+						namespacePodChan <- nil
+						return
+					}
+					if debug {
+						fmt.Printf("DEBUG: found %d pods in context %s namespace %s\n", len(ns_pods), ctx, ns)
+					}
+					var pods []Pod
+					for _, pod := range ns_pods {
+						if debug {
+							fmt.Printf("DEBUG: found pod %s in context %s namespace %s\n", pod, ctx, ns)
+						}
+						clusterPods = append(clusterPods, Pod{
+							pod_name:  pod,
+							namespace: ns,
+							context:   ctx,
+						})
+					}
+					namespacePodChan <- pods
+				}(ctx, ns)
+			}
+			for range namespaces {
+				namespacePods := <-namespacePodChan
+				if namespacePods != nil {
+					clusterPods = append(clusterPods, namespacePods...)
+				}
+			}
+			podChan <- clusterPods
+		}(ctx)
+	}
+	for range clusters {
+		clusterPods := <-podChan
+		pods = append(pods, clusterPods...)
 	}
 	return pods, nil
 }
