@@ -3,6 +3,18 @@
 
 kube-knife is a tool to run commands on multiple pods concurrently using kubectl commands
 
+## Install
+
+### Binary: MacOS (amd64/arm64), Windows, Linux
+```
+https://github.com/spideyz0r/kubesw/releases
+```
+### From source
+```
+git checkout https://github.com/spideyz0r/kubesw
+cd kubesw; go build -v -o kubesw
+```
+
 ## Usage
 ```
 Usage: k8s-knife [-hs] [-C value] [-c value] [-n value] [-p value] [-S value] [parameters ...]
