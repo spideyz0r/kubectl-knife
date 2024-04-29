@@ -15,7 +15,6 @@ import (
 type Knife struct {
 	pods    []Pod
 	command string
-	user    string
 }
 
 type Pod struct {
