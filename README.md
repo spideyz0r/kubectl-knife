@@ -38,5 +38,6 @@ Usage: kube-knife [-hs] [-C value] [-c value] [-n value] [-p value] [-S value] [
 - Put together some tests
 - Use API rather than call kubectl
 - Add option to set number of cores to be used (depending on the filter it can take over all the cpu)
+- Ask for confirmation when run without any settings (it will list pods from all the clusters you have configured in parallel)
 
 
