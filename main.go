@@ -245,7 +245,10 @@ func runCommand(ctx, ns, pod, command, shell string, wg *sync.WaitGroup, semapho
 	if err != nil {
 		fmt.Printf("%s %s %s: %s\n", ctx, ns, pod, err)
 	} else {
-		// need to cleanout the output, or think on a way to repeat the pod name in each line of the output
-		fmt.Printf("%s %s %s: %s", ctx, ns, pod, string(command_output))
+		command_output := strings.TrimSuffix(string(command_output), "\n")
+		lines := strings.Split(command_output, "\n")
+		for _, line := range lines {
+			fmt.Printf("%s %s %s: %s\n", ctx, ns, pod, line)
+		}
 	}
 }
