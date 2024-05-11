@@ -17,18 +17,20 @@ cd kube-knife; go build -v -o kube-knife
 
 ## Usage
 ```
-Usage: kube-knife [-hs] [-C value] [-c value] [-n value] [-p value] [-S value] [parameters ...]
+Usage: kube-knife [-dhs] [-C value] [-c value] [-m value] [-n value] [-p value] [-S value] [parameters ...]
  -C, --command=value
                     command to run, if empty, just list pods
  -c, --context=value
                     context regex
+ -d, --debug        debug mode
  -h, --help         display this help
+ -m, --max-concurrency=value
+                    max concurrency, default: 10
  -n, --namespace=value
                     namespace regex
  -p, --pod=value    pod regex
  -S, --shell=value  default: sh
- -s, --skip-filter  specific; skip filtering, does not use regex
-
+ -s, --skip-filter  skip filtering, does not use regex
 ```
 
 ## TODO
