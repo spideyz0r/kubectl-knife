@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +11,9 @@ import (
 	"sync"
 
 	"github.com/pborman/getopt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 type Knife struct {
@@ -87,46 +91,86 @@ func getContexts(filter string, skip_filter bool) ([]string, error) {
 	if skip_filter {
 		return []string{filter}, nil
 	}
-	cmd := exec.Command("kubectl", "config", "get-contexts", "--no-headers=true", "-o", "name")
-	contexts, err := cmd.Output()
+
+	config_loading_rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(config_loading_rules, &clientcmd.ConfigOverrides{}).RawConfig()
 	if err != nil {
 		return nil, err
 	}
-	clusters := strings.Split(string(contexts), "\n")
-	if len(clusters) == 0 {
-		return nil, fmt.Errorf("no clusters found")
+
+	var contexts []string
+	for name := range config.Contexts {
+		contexts = append(contexts, name)
 	}
-	return filterString(clusters, filter), nil
+
+	return filterString(contexts, filter), nil
+}
+
+func setContext(ctx string) (*kubernetes.Clientset, error) {
+	config_loading_rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	config_overrides := &clientcmd.ConfigOverrides{
+		CurrentContext: ctx,
+	}
+
+	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(config_loading_rules, config_overrides).ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return clientset, nil
 }
 
 func getNamespaces(ctx, filter string, skip_filter bool) ([]string, error) {
-	if skip_filter{
+	if skip_filter {
 		return []string{filter}, nil
 	}
-	cmd := exec.Command("kubectl", "get", "namespaces", "--no-headers=true", "--context", ctx, "-o", "name")
-	raw_namespaces, err := cmd.Output()
+
+	clientset, err := setContext(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if len(raw_namespaces) == 0 {
-		return nil, fmt.Errorf("no namespaces found")
+
+	namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
 	}
-	return filterString(getName(string(raw_namespaces)), filter), nil
+
+	var names []string
+	for _, ns := range namespaces.Items {
+		names = append(names, ns.Name)
+	}
+
+	return filterString(names, filter), nil
 }
 
 func getPods(ctx, ns, filter string, skip_filter bool) ([]string, error) {
 	if skip_filter {
 		return []string{filter}, nil
 	}
-	cmd := exec.Command("kubectl", "get", "pods", "--no-headers=true", "--context", ctx, "-n", ns, "-o", "name")
-	raw_pods, err := cmd.Output()
+
+	clientset, err := setContext(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if len(raw_pods) == 0 {
+
+	pods, err := clientset.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(pods.Items) == 0 {
 		return nil, fmt.Errorf("no pods found")
 	}
-	return filterString(getName(string(raw_pods)), filter), nil
+	var pod_names []string
+	for _, pod := range pods.Items {
+		pod_names = append(pod_names, pod.Name)
+	}
+
+	return filterString(pod_names, filter), nil
 }
 
 func discoveryPods(cluster_filter, namespace_filter, pod_filter string, skip_filter, debug bool, max_concurrency int) ([]Pod, error) {
@@ -222,15 +266,6 @@ func filterString(items []string, patter string) []string {
 		if re.MatchString(item) {
 			result = append(result, item)
 		}
-	}
-	return result
-}
-
-func getName(kubectl_cmd string) []string {
-	var result []string
-	lines := strings.Split(strings.TrimSpace(string(kubectl_cmd)), "\n")
-	for _, line := range lines {
-		result = append(result, strings.Split(line, "/")[1])
 	}
 	return result
 }
