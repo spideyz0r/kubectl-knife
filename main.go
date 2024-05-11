@@ -40,6 +40,8 @@ func main() {
 	command := getopt.StringLong("command", 'C', "", "command to run, if empty, just list pods")
 	shell := getopt.StringLong("shell", 'S', "sh", "default: sh")
 	skip_filter := getopt.BoolLong("skip-filter", 's', "skip filtering, does not use regex")
+	max_concurrency := getopt.IntLong("max-concurrency", 'm', 10, "max concurrency, default: 10")
+
 
 	getopt.Parse()
 
@@ -49,10 +51,10 @@ func main() {
 	}
 
 	if *debug {
-		fmt.Println("DEBUG: starting kube-knife")
+		fmt.Println("DEBUG: starting kube-knife. Concurrency:", *max_concurrency)
 	}
 
-	pods, err := discoveryPods(*cluster_filter, *namespace_filter, *pod_filter, *skip_filter, *debug)
+	pods, err := discoveryPods(*cluster_filter, *namespace_filter, *pod_filter, *skip_filter, *debug, *max_concurrency)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -73,9 +75,10 @@ func main() {
 		fmt.Println("DEBUG: executing command on pods")
 	}
 	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, *max_concurrency)
 	for _, p := range k.pods {
 		wg.Add(1)
-		go runCommand(p.context, p.namespace, p.pod_name, *command, *shell, &wg)
+		go runCommand(p.context, p.namespace, p.pod_name, *command, *shell, &wg, semaphore)
 	}
 	wg.Wait()
 }
@@ -126,7 +129,7 @@ func getPods(ctx, ns, filter string, skip_filter bool) ([]string, error) {
 	return filterString(getName(string(raw_pods)), filter), nil
 }
 
-func discoveryPods(cluster_filter, namespace_filter, pod_filter string, skip_filter, debug bool) ([]Pod, error) {
+func discoveryPods(cluster_filter, namespace_filter, pod_filter string, skip_filter, debug bool, max_concurrency int) ([]Pod, error) {
 	var pods []Pod
 	clusters, err := getContexts(cluster_filter, skip_filter)
 	if err != nil {
@@ -134,13 +137,20 @@ func discoveryPods(cluster_filter, namespace_filter, pod_filter string, skip_fil
 	}
 
 	podChan := make(chan []Pod)
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, max_concurrency)
 
 	for _, ctx := range clusters {
+		wg.Add(1)
 		go func(ctx string) {
+			defer wg.Done()
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
 			var clusterPods []Pod
 
 			namespaces, err := getNamespaces(ctx, namespace_filter, skip_filter)
-			if err != nil || len(namespaces) == 0{
+			if err != nil || len(namespaces) == 0 {
 				if debug {
 					fmt.Println("DEBUG: no namespaces found for context:", ctx)
 				}
@@ -149,8 +159,12 @@ func discoveryPods(cluster_filter, namespace_filter, pod_filter string, skip_fil
 			}
 
 			namespacePodChan := make(chan []Pod)
+			var nsWg sync.WaitGroup
+
 			for _, ns := range namespaces {
+				nsWg.Add(1)
 				go func(ctx, ns string) {
+					defer nsWg.Done()
 					ns_pods, err := getPods(ctx, ns, pod_filter, skip_filter)
 					if err != nil || len(ns_pods) == 0 {
 						namespacePodChan <- nil
@@ -173,6 +187,10 @@ func discoveryPods(cluster_filter, namespace_filter, pod_filter string, skip_fil
 					namespacePodChan <- pods
 				}(ctx, ns)
 			}
+			go func() {
+				nsWg.Wait()
+				close(namespacePodChan)
+			}()
 			for range namespaces {
 				namespacePods := <-namespacePodChan
 				if namespacePods != nil {
@@ -182,6 +200,11 @@ func discoveryPods(cluster_filter, namespace_filter, pod_filter string, skip_fil
 			podChan <- clusterPods
 		}(ctx)
 	}
+	go func() {
+		wg.Wait()
+		close(podChan)
+	}()
+
 	for range clusters {
 		clusterPods := <-podChan
 		pods = append(pods, clusterPods...)
@@ -212,8 +235,11 @@ func getName(kubectl_cmd string) []string {
 	return result
 }
 
-func runCommand(ctx, ns, pod, command, shell string, wg *sync.WaitGroup) {
+func runCommand(ctx, ns, pod, command, shell string, wg *sync.WaitGroup, semaphore chan struct{}) {
 	defer wg.Done()
+	semaphore <- struct{}{}
+	defer func() { <-semaphore }()
+
 	cmd := exec.Command("kubectl", "exec", "--context", ctx, "-n", ns, pod, "--", shell, "-c", command)
 	command_output, err := cmd.Output()
 	if err != nil {
