@@ -35,11 +35,7 @@ Usage: kube-knife [-dhs] [-C value] [-c value] [-m value] [-n value] [-p value] 
 
 ## TODO
 - Improve pod listing output, and make it more useful
-- Add pod prefix when displaying multi-line output
 - Dynamically tries /bin/sh, /bin/dash, /bin/bash, /bin/ash ===> sh -c "ls -d /tmp" || bash -c "ls -d /tmp" || ash -c "ls -d /tmp"  || dash -c "ls -d /tmp"
 - Put together some tests
-- Use API rather than call kubectl
-- Add option to set number of cores to be used (depending on the filter it can take over all the cpu)
-- Ask for confirmation when run without any settings (it will list pods from all the clusters you have configured in parallel)
 
 
