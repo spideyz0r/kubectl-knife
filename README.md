@@ -1,5 +1,5 @@
 # kube-knife
-[![goreleaser](https://github.com/spideyz0r/kube-knife/actions/workflows/release.yml/badge.svg)](https://github.com/spideyz0r/kube-knife/actions/workflows/release.yml)
+[![goreleaser](https://github.com/spideyz0r/kube-knife/actions/workflows/release.yml/badge.svg)](https://github.com/spideyz0r/kube-knife/actions/workflows/release.yml) ![CI](https://github.com/spideyz0r/kube-knife/workflows/gotester/badge.svg)
 
 kube-knife is a tool to run commands on multiple pods concurrently using kubectl commands
 
