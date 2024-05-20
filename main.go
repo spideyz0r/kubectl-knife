@@ -27,6 +27,16 @@ type Pod struct {
 	context   string
 }
 
+type Commander interface {
+	Exec(command string, args ...string) ([]byte, error)
+}
+
+type RealCommander struct{}
+
+func (c *RealCommander) Exec(command string, args ...string) ([]byte, error) {
+	return exec.Command(command, args...).Output()
+}
+
 func (k Knife) Print() {
 	// maybe also list uptime, or get pod like output
 	fmt.Printf("%s\t%s\t%s\n", "context", "namespace", "pod_name")
@@ -80,9 +90,10 @@ func main() {
 	}
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, *max_concurrency)
+	commander := &RealCommander{}
 	for _, p := range k.pods {
 		wg.Add(1)
-		go runCommand(p.context, p.namespace, p.pod_name, *command, *shell, &wg, semaphore)
+		go runCommand(p.context, p.namespace, p.pod_name, *command, *shell, &wg, semaphore, commander)
 	}
 	wg.Wait()
 }
@@ -256,9 +267,9 @@ func discoveryPods(cluster_filter, namespace_filter, pod_filter string, skip_fil
 	return pods, nil
 }
 
-func filterString(items []string, patter string) []string {
+func filterString(items []string, pattern string) []string {
 	var result []string
-	re, err := regexp.Compile(patter)
+	re, err := regexp.Compile(pattern)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -270,20 +281,24 @@ func filterString(items []string, patter string) []string {
 	return result
 }
 
-func runCommand(ctx, ns, pod, command, shell string, wg *sync.WaitGroup, semaphore chan struct{}) {
+func runCommand(ctx, ns, pod, command, shell string, wg *sync.WaitGroup, semaphore chan struct{}, commander Commander) {
 	defer wg.Done()
 	semaphore <- struct{}{}
 	defer func() { <-semaphore }()
 
-	cmd := exec.Command("kubectl", "exec", "--context", ctx, "-n", ns, pod, "--", shell, "-c", command)
-	command_output, err := cmd.Output()
+	command_output, err := commander.Exec("kubectl", "exec", "--context", ctx, "-n", ns, pod, "--", shell, "-c", command)
 	if err != nil {
 		fmt.Printf("%s %s %s: %s\n", ctx, ns, pod, err)
 	} else {
-		command_output := strings.TrimSuffix(string(command_output), "\n")
-		lines := strings.Split(command_output, "\n")
-		for _, line := range lines {
-			fmt.Printf("%s %s %s: %s\n", ctx, ns, pod, line)
-		}
+		fmt.Printf(formatOutput(ctx, ns, pod, string(command_output)))
 	}
+}
+
+func formatOutput(ctx, ns, pod, output string) string {
+	var result string
+	lines := strings.Split(strings.TrimSuffix(string(output), "\n"), "\n")
+	for _, line := range lines {
+		result += fmt.Sprintf("%s %s %s: %s\n", ctx, ns, pod, line)
+	}
+	return result
 }
