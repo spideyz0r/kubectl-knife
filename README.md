@@ -36,6 +36,7 @@ Usage: kube-knife [-dhs] [-C value] [-c value] [-m value] [-n value] [-p value] 
 ## TODO
 - Improve pod listing output, and make it more useful
 - Dynamically tries /bin/sh, /bin/dash, /bin/bash, /bin/ash ===> sh -c "ls -d /tmp" || bash -c "ls -d /tmp" || ash -c "ls -d /tmp"  || dash -c "ls -d /tmp"
-- Put together some tests
-
+- Put it availabe on krew
+- When no ns/ctx are specified, use whatever the user has set
+- Configure timeout for API calls via go context
 
