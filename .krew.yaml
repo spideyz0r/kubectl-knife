@@ -1,0 +1,35 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: knife
+spec:
+  version: {{ .TagName }}
+  homepage: https://github.com/spideyz0r/kube-knife
+  shortDescription: Run commands on multiple pods, in different contexts or namespaces concurrently filtering with regex
+  description: |
+    kube-knife is a tool to run commands on multiple pods, in different contexts or namespaces concurrently filtering with regex
+  platforms:
+  - selector:
+      matchLabels:
+        os: darwin
+        arch: amd64
+    {{addURIAndSha "https://github.com/spideyz0r/kube-knife/releases/download/{{ .TagName }}/kube-knife_{{ .TagName }}_darwin_amd64.tar.gz" .TagName }}
+    bin: kube-knife
+  - selector:
+      matchLabels:
+        os: darwin
+        arch: arm64
+    {{addURIAndSha "https://github.com/spideyz0r/kube-knife/releases/download/{{ .TagName }}/kube-knife_{{ .TagName }}_darwin_arm64.tar.gz" .TagName }}
+    bin: kube-knife
+  - selector:
+      matchLabels:
+        os: linux
+        arch: amd64
+    {{addURIAndSha "https://github.com/spideyz0r/kube-knife/releases/download/{{ .TagName }}/kube-knife_{{ .TagName }}_linux_amd64.tar.gz" .TagName }}
+    bin: kube-knife
+  - selector:
+      matchLabels:
+        os: linux
+        arch: arm64
+    {{addURIAndSha "https://github.com/spideyz0r/kube-knife/releases/download/{{ .TagName }}/kube-knife_{{ .TagName }}_linux_arm64.tar.gz" .TagName }}
+    bin: kube-knife
