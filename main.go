@@ -65,7 +65,7 @@ func main() {
 	}
 
 	if *debug {
-		fmt.Println("DEBUG: starting kube-knife. Concurrency:", *max_concurrency)
+		fmt.Println("DEBUG: starting kubectl-knife. Concurrency:", *max_concurrency)
 	}
 
 	pods, err := discoveryPods(*cluster_filter, *namespace_filter, *pod_filter, *skip_filter, *debug, *max_concurrency)

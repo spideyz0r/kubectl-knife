@@ -1,23 +1,23 @@
-# kube-knife
-[![goreleaser](https://github.com/spideyz0r/kube-knife/actions/workflows/release.yml/badge.svg)](https://github.com/spideyz0r/kube-knife/actions/workflows/release.yml) ![CI](https://github.com/spideyz0r/kube-knife/workflows/gotester/badge.svg)
+# kubectl-knife
+[![goreleaser](https://github.com/spideyz0r/kubectl-knife/actions/workflows/release.yml/badge.svg)](https://github.com/spideyz0r/kubectl-knife/actions/workflows/release.yml) ![CI](https://github.com/spideyz0r/kubectl-knife/workflows/gotester/badge.svg)
 
-kube-knife is a tool to run commands on multiple pods concurrently using kubectl commands
+kubectl-knife is a tool to run commands on multiple pods concurrently using kubectl commands
 
 ## Install
 
 ### Binary: MacOS (amd64/arm64), Windows, Linux
 ```
-https://github.com/spideyz0r/kube-knife/releases
+https://github.com/spideyz0r/kubectl-knife/releases
 ```
 ### From source
 ```
-git checkout https://github.com/spideyz0r/kube-knife
-cd kube-knife; go build -v -o kube-knife
+git checkout https://github.com/spideyz0r/kubectl-knife
+cd kubectl-knife; go build -v -o kubectl-knife
 ```
 
 ## Usage
 ```
-Usage: kube-knife [-dhs] [-C value] [-c value] [-m value] [-n value] [-p value] [-S value] [parameters ...]
+Usage: kubectl-knife [-dhs] [-C value] [-c value] [-m value] [-n value] [-p value] [-S value] [parameters ...]
  -C, --command=value
                     command to run, if empty, just list pods
  -c, --context=value
