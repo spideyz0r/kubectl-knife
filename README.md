@@ -35,8 +35,11 @@ Usage: kubectl-knife [-dhs] [-C value] [-c value] [-m value] [-n value] [-p valu
 
 ## Install it as a `kubectl knife` plugin:
 1 Download or compile the binary
+
 2 Rename it to kubectl-knife
+
 3 Make sure the binary is included in your $PATH
+
 ```
 $ kubectl knife -h
 Usage: kubectl-knife [-dhs] [-C value] [-c value] [-m value] [-n value] [-p value] [-S value] [parameters ...]
