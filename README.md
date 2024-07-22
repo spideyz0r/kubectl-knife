@@ -5,6 +5,12 @@ kubectl-knife is a tool to run commands on multiple pods concurrently using kube
 
 ## Install
 
+### Krew
+```
+kubectl krew install knife
+```
+More info: https://krew.sigs.k8s.io/plugins/
+
 ### Binary: MacOS (amd64/arm64), Windows, Linux
 ```
 https://github.com/spideyz0r/kubectl-knife/releases
