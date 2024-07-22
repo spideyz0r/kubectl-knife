@@ -23,7 +23,7 @@ cd kubectl-knife; go build -v -o kubectl-knife
 
 ## Usage
 ```
-Usage: kubectl-knife [-dhs] [-C value] [-c value] [-m value] [-n value] [-p value] [-S value] [parameters ...]
+Usage: kubectl knife [-dhs] [-C value] [-c value] [-m value] [-n value] [-p value] [-S value] [parameters ...]
  -C, --command=value
                     command to run, if empty, just list pods
  -c, --context=value
@@ -67,7 +67,5 @@ Usage: kubectl-knife [-dhs] [-C value] [-c value] [-m value] [-n value] [-p valu
 ## TODO
 - Improve pod listing output, and make it more useful
 - Dynamically tries /bin/sh, /bin/dash, /bin/bash, /bin/ash ===> sh -c "ls -d /tmp" || bash -c "ls -d /tmp" || ash -c "ls -d /tmp"  || dash -c "ls -d /tmp"
-- Put it availabe on krew
-- When no ns/ctx are specified, use whatever the user has set
 - Configure timeout for API calls via go context
 
